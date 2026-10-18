@@ -23,29 +23,33 @@
         </div>
     </div>
 
-    @if (!string.IsNullOrEmpty(formError))
-    {
-        <div class="alert alert-danger">@formError</div>
-    }
-    @if (!string.IsNullOrEmpty(formSuccess))
-    {
-        <div class="alert alert-success">@formSuccess</div>
-    }
+    @if (!string.IsNullOrEmpty(formError)) { <div class="alert alert-danger">@formError</div> }
+    @if (!string.IsNullOrEmpty(formSuccess)) { <div class="alert alert-success">@formSuccess</div> }
 
-    <!-- ПОИСК -->
+    <!-- ПОИСК И ФИЛЬТР ПО РОЛИ -->
     <div class="card mb-3">
         <div class="card-body">
             <div class="row g-2 align-items-end">
-                <div class="col-md-8">
+                <div class="col-md-5">
                     <label class="form-label">Поиск по ФИО</label>
-                    <input @bind="searchQuery" @bind:event="oninput" class="form-control"
-                           placeholder="Введите фамилию или часть имени..."
+                    <input @bind="searchQuery" @bind:event="oninput" class="form-control" 
+                           placeholder="Введите фамилию или часть имени..." 
                            @onkeydown="HandleSearchKeyDown" />
                 </div>
                 <div class="col-md-4">
+                    <label class="form-label">Фильтр по роли</label>
+                    <select @bind="selectedRoleId" class="form-select">
+                        <option value="0">Все роли</option>
+                        @foreach (var role in roles)
+                        {
+                            <option value="@role.Id">@role.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
                     <div class="d-flex gap-2">
-                        <button class="btn btn-primary flex-fill" @onclick="ApplySearch">Найти</button>
-                        <button class="btn btn-outline-secondary" @onclick="ClearSearch">Сбросить</button>
+                        <button class="btn btn-primary flex-fill" @onclick="ApplyFilters">Найти</button>
+                        <button class="btn btn-outline-secondary" @onclick="ClearFilters">Сбросить</button>
                     </div>
                 </div>
             </div>
@@ -104,7 +108,7 @@
     {
         <div class="alert alert-info text-center">
             Сотрудники не найдены.
-            @if (canEdit && string.IsNullOrEmpty(searchQuery))
+            @if (canEdit && string.IsNullOrEmpty(searchQuery) && selectedRoleId == 0)
             {
                 <div class="mt-2">
                     <button class="btn btn-success" @onclick="OpenCreateForm">+ Добавить первого сотрудника</button>
@@ -170,7 +174,9 @@
     private string formError = "";
     private string formSuccess = "";
     private string searchQuery = "";
-
+    private int selectedRoleId = 0; // 0 = "Все роли"
+    private List<RoleDto> roles = new();
+    
     private string userName = "";
     private string userRole = "";
     private bool isAdmin = false;
@@ -181,10 +187,10 @@
         if (firstRender)
         {
             var savedUser = await JS.InvokeAsync<string>("localStorage.getItem", "currentUser");
-            if (string.IsNullOrEmpty(savedUser))
-            {
-                NavigationManager.NavigateTo("/");
-                return;
+            if (string.IsNullOrEmpty(savedUser)) 
+            { 
+                NavigationManager.NavigateTo("/"); 
+                return; 
             }
 
             var userObj = System.Text.Json.JsonSerializer.Deserialize<UserInfoDto>(savedUser);
@@ -194,30 +200,35 @@
                 isAdmin = userObj.RoleId == 1;
                 canEdit = userObj.RoleId == 1 || userObj.RoleId == 2;
             }
-
+            
+            // Загружаем список ролей для фильтра
+            roles = await EmployeeManager.GetRolesAsync();
+            
             await LoadPage(1);
         }
     }
 
-    private async Task LoadPage(int page, string? search = null)
+    private async Task LoadPage(int page, string? search = null, int? roleId = null)
     {
         isLoading = true;
         formError = "";
         formSuccess = "";
         StateHasChanged();
-        pagedResult = await EmployeeManager.GetPageAsync(page, 10, search);
+        pagedResult = await EmployeeManager.GetPageAsync(page, 10, search, roleId);
         isLoading = false;
         StateHasChanged();
     }
 
-    private async Task ApplySearch()
+    private async Task ApplyFilters()
     {
-        await LoadPage(1, searchQuery);
+        int? roleIdFilter = selectedRoleId > 0 ? selectedRoleId : null;
+        await LoadPage(1, searchQuery, roleIdFilter);
     }
 
-    private async Task ClearSearch()
+    private async Task ClearFilters()
     {
         searchQuery = "";
+        selectedRoleId = 0;
         await LoadPage(1);
     }
 
@@ -225,7 +236,7 @@
     {
         if (e.Key == "Enter")
         {
-            await ApplySearch();
+            await ApplyFilters();
         }
     }
 
@@ -239,15 +250,9 @@
     private void OpenEditForm(EmployeeDto emp)
     {
         isEditing = true;
-        currentEmployee = new EmployeeDto
-        {
-            Id = emp.Id,
-            FullName = emp.FullName,
-            Profession = emp.Profession,
-            DepartmentId = emp.DepartmentId,
-            Phone = emp.Phone,
-            Email = emp.Email,
-            RoleId = emp.RoleId
+        currentEmployee = new EmployeeDto { 
+            Id = emp.Id, FullName = emp.FullName, Profession = emp.Profession, 
+            DepartmentId = emp.DepartmentId, Phone = emp.Phone, Email = emp.Email, RoleId = emp.RoleId 
         };
         showForm = true;
     }
@@ -259,7 +264,7 @@
         formError = "";
         if (currentEmployee.DepartmentId <= 0) { formError = "Введите корректный ID отдела"; return; }
 
-        var result = isEditing
+        var result = isEditing 
             ? await EmployeeManager.UpdateAsync(currentEmployee)
             : await EmployeeManager.CreateAsync(currentEmployee);
 
@@ -267,7 +272,8 @@
         {
             formSuccess = result.Message;
             CloseForm();
-            await LoadPage(pagedResult.CurrentPage, searchQuery);
+            int? roleIdFilter = selectedRoleId > 0 ? selectedRoleId : null;
+            await LoadPage(pagedResult.CurrentPage, searchQuery, roleIdFilter);
         }
         else { formError = result.Message; }
     }
@@ -280,13 +286,14 @@
         var result = await EmployeeManager.DeleteAsync(id);
         if (result.Success)
         {
+            int? roleIdFilter = selectedRoleId > 0 ? selectedRoleId : null;
             if (pagedResult.Items.Count == 1 && pagedResult.CurrentPage > 1)
             {
-                await LoadPage(pagedResult.CurrentPage - 1, searchQuery);
+                await LoadPage(pagedResult.CurrentPage - 1, searchQuery, roleIdFilter);
             }
             else
             {
-                await LoadPage(pagedResult.CurrentPage, searchQuery);
+                await LoadPage(pagedResult.CurrentPage, searchQuery, roleIdFilter);
             }
         }
         else { formError = result.Message; }

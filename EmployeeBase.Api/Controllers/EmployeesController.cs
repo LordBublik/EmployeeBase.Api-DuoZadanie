@@ -35,24 +35,30 @@ namespace EmployeeBase.Api.Controllers
         public async Task<IActionResult> GetEmployees(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,
-            [FromQuery] string? search = null)
+            [FromQuery] string? search = null,
+            [FromQuery] int? roleId = null)
         {
-            // Сначала фильтруем, потом маппим
             var query = _context.Employees
                 .Include(e => e.Role)
                 .AsQueryable();
 
+            // Фильтр по ФИО
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var searchLower = search.ToLower();
                 query = query.Where(e => e.FullName.ToLower().Contains(searchLower));
             }
 
+            // Фильтр по роли (если roleId передан и не равен 0)
+            if (roleId.HasValue && roleId.Value > 0)
+            {
+                query = query.Where(e => e.RoleId == roleId.Value);
+            }
+
             query = query.OrderBy(e => e.Id);
 
             var totalCount = await query.CountAsync();
 
-            // Теперь маппим на DTO
             var items = await query
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
