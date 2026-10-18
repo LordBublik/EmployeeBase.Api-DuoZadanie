@@ -32,7 +32,6 @@
         <div class="alert alert-success">@formSuccess</div>
     }
 
-    <!-- ПОИСК -->
     <div class="card mb-3">
         <div class="card-body">
             <div class="row g-2 align-items-end">
@@ -52,7 +51,6 @@
         </div>
     </div>
 
-    <!-- ФОРМА -->
     @if (showForm)
     {
         <div class="card mb-4 border-primary">
@@ -95,7 +93,6 @@
         </div>
     }
 
-    <!-- ТАБЛИЦА -->
     @if (isLoading)
     {
         <div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2">Загрузка...</p></div>
@@ -152,7 +149,6 @@
             </div>
         </div>
 
-        <!-- ПАГИНАЦИЯ -->
         <div class="d-flex justify-content-center align-items-center gap-3 mt-4">
             <button class="btn btn-outline-secondary" disabled="@(pagedResult.CurrentPage <= 1)" @onclick="() => LoadPage(pagedResult.CurrentPage - 1)">← Назад</button>
             <span>Страница <strong>@pagedResult.CurrentPage</strong> из @pagedResult.TotalPages</span>
@@ -162,6 +158,7 @@
 </div>
 
 @code {
+    private string searchQuery = "";
     private PagedResultDto<EmployeeDto> pagedResult = new();
     private bool isLoading = true;
     private bool showForm = false;
@@ -169,7 +166,7 @@
     private EmployeeDto currentEmployee = new();
     private string formError = "";
     private string formSuccess = "";
-    private string searchQuery = "";
+
 
     private string userName = "";
     private string userRole = "";
