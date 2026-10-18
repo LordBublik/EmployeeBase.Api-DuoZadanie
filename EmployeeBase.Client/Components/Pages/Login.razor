@@ -1,0 +1,64 @@
+﻿@page "/"
+@layout AuthLayout
+@rendermode InteractiveServer
+@inject EmployeeBase.Client.Managers.AuthManager AuthManager
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+
+<PageTitle>Вход</PageTitle>
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-4">
+        <h3>Вход в систему</h3>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <div class="mb-3">
+            <label class="form-label">Логин</label>
+            <input @bind="login" class="form-control" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Пароль</label>
+            <input @bind="password" class="form-control" type="password" />
+        </div>
+
+        <button class="btn btn-primary w-100" @onclick="HandleLogin">Войти</button>
+
+        <p class="mt-3">
+            Нет аккаунта? <a href="/register">Зарегистрироваться</a>
+        </p>
+    </div>
+</div>
+
+@code {
+    private string login = "";
+    private string password = "";
+    private string errorMessage = "";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var savedUser = await JS.InvokeAsync<string>("localStorage.getItem", "currentUser");
+            if (!string.IsNullOrEmpty(savedUser))
+            {
+                NavigationManager.NavigateTo("/employees");
+            }
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        errorMessage = "";
+        var (success, error) = await AuthManager.LoginAsync(login, password);
+
+        if (!success)
+        {
+            errorMessage = error;
+        }
+    }
+}

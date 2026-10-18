@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="EmployeeBase.Api/EmployeeBase.Api.csproj" />
+  <Project Path="EmployeeBase.Client/EmployeeBase.Client.csproj" Id="a400a3e2-a5f0-4a8c-8c28-4b0f2248e876" />
+  <Project Path="Shared/Shared.shproj" Id="c8f75f58-a041-4571-8312-6f7f75d5c7ca" />
+</Solution>
