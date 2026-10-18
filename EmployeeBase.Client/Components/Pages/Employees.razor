@@ -32,6 +32,27 @@
         <div class="alert alert-success">@formSuccess</div>
     }
 
+    <!-- ПОИСК -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-8">
+                    <label class="form-label">Поиск по ФИО</label>
+                    <input @bind="searchQuery" @bind:event="oninput" class="form-control"
+                           placeholder="Введите фамилию или часть имени..."
+                           @onkeydown="HandleSearchKeyDown" />
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary flex-fill" @onclick="ApplySearch">Найти</button>
+                        <button class="btn btn-outline-secondary" @onclick="ClearSearch">Сбросить</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ФОРМА -->
     @if (showForm)
     {
         <div class="card mb-4 border-primary">
@@ -74,13 +95,22 @@
         </div>
     }
 
+    <!-- ТАБЛИЦА -->
     @if (isLoading)
     {
         <div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2">Загрузка...</p></div>
     }
     else if (pagedResult.Items.Count == 0)
     {
-        <div class="alert alert-info text-center">Сотрудники не найдены.</div>
+        <div class="alert alert-info text-center">
+            Сотрудники не найдены.
+            @if (canEdit && string.IsNullOrEmpty(searchQuery))
+            {
+                <div class="mt-2">
+                    <button class="btn btn-success" @onclick="OpenCreateForm">+ Добавить первого сотрудника</button>
+                </div>
+            }
+        </div>
     }
     else
     {
@@ -139,6 +169,7 @@
     private EmployeeDto currentEmployee = new();
     private string formError = "";
     private string formSuccess = "";
+    private string searchQuery = "";
 
     private string userName = "";
     private string userRole = "";
@@ -160,7 +191,6 @@
             if (userObj != null)
             {
                 userName = userObj.NameToShow;
-
                 isAdmin = userObj.RoleId == 1;
                 canEdit = userObj.RoleId == 1 || userObj.RoleId == 2;
             }
@@ -169,15 +199,34 @@
         }
     }
 
-    private async Task LoadPage(int page)
+    private async Task LoadPage(int page, string? search = null)
     {
         isLoading = true;
         formError = "";
         formSuccess = "";
         StateHasChanged();
-        pagedResult = await EmployeeManager.GetPageAsync(page);
+        pagedResult = await EmployeeManager.GetPageAsync(page, 10, search);
         isLoading = false;
         StateHasChanged();
+    }
+
+    private async Task ApplySearch()
+    {
+        await LoadPage(1, searchQuery);
+    }
+
+    private async Task ClearSearch()
+    {
+        searchQuery = "";
+        await LoadPage(1);
+    }
+
+    private async Task HandleSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await ApplySearch();
+        }
     }
 
     private void OpenCreateForm()
@@ -218,7 +267,7 @@
         {
             formSuccess = result.Message;
             CloseForm();
-            await LoadPage(pagedResult.CurrentPage);
+            await LoadPage(pagedResult.CurrentPage, searchQuery);
         }
         else { formError = result.Message; }
     }
@@ -233,11 +282,11 @@
         {
             if (pagedResult.Items.Count == 1 && pagedResult.CurrentPage > 1)
             {
-                await LoadPage(pagedResult.CurrentPage - 1);
+                await LoadPage(pagedResult.CurrentPage - 1, searchQuery);
             }
             else
             {
-                await LoadPage(pagedResult.CurrentPage);
+                await LoadPage(pagedResult.CurrentPage, searchQuery);
             }
         }
         else { formError = result.Message; }

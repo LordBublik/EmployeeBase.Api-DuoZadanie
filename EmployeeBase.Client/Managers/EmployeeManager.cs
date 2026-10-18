@@ -33,11 +33,18 @@ namespace EmployeeBase.Client.Managers
             }
         }
 
-        public async Task<PagedResultDto<EmployeeDto>> GetPageAsync(int page, int pageSize = 10)
+        public async Task<PagedResultDto<EmployeeDto>> GetPageAsync(int page, int pageSize = 10, string? search = null)
         {
             if (page < 1) page = 1;
             await AddAuthHeaderAsync();
-            var result = await _http.GetFromJsonAsync<PagedResultDto<EmployeeDto>>($"api/employees?page={page}&pageSize={pageSize}");
+
+            var url = $"api/employees?page={page}&pageSize={pageSize}";
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                url += $"&search={Uri.EscapeDataString(search)}";
+            }
+
+            var result = await _http.GetFromJsonAsync<PagedResultDto<EmployeeDto>>(url);
             return result ?? new PagedResultDto<EmployeeDto>();
         }
 

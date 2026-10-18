@@ -23,7 +23,6 @@ namespace EmployeeBase.Api.Controllers
             if (Request.Headers.TryGetValue("Authorization", out var authHeader))
             {
                 var token = authHeader.ToString().Replace("Bearer ", "").Trim();
-
                 if (_cache.TryGetValue(token, out UserSession session) && session != null)
                 {
                     return session.RoleId;
@@ -33,11 +32,30 @@ namespace EmployeeBase.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetEmployees([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> GetEmployees(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? search = null)
         {
+            // Сначала фильтруем, потом маппим
             var query = _context.Employees
                 .Include(e => e.Role)
-                .OrderBy(e => e.Id)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var searchLower = search.ToLower();
+                query = query.Where(e => e.FullName.ToLower().Contains(searchLower));
+            }
+
+            query = query.OrderBy(e => e.Id);
+
+            var totalCount = await query.CountAsync();
+
+            // Теперь маппим на DTO
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .Select(e => new EmployeeDto
                 {
                     Id = e.Id,
@@ -48,10 +66,8 @@ namespace EmployeeBase.Api.Controllers
                     DepartmentId = e.DepartmentId,
                     RoleId = e.RoleId,
                     RoleName = e.Role != null ? e.Role.Name : null
-                });
-
-            var totalCount = await query.CountAsync();
-            var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+                })
+                .ToListAsync();
 
             return Ok(new PagedResultDto<EmployeeDto>
             {
