@@ -36,7 +36,9 @@ namespace EmployeeBase.Api.Controllers
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,
             [FromQuery] string? search = null,
-            [FromQuery] int? roleId = null)
+            [FromQuery] int? roleId = null,
+            [FromQuery] string? sortBy = null,
+            [FromQuery] string? sortDir = null)
         {
             var query = _context.Employees
                 .Include(e => e.Role)
@@ -55,7 +57,23 @@ namespace EmployeeBase.Api.Controllers
                 query = query.Where(e => e.RoleId == roleId.Value);
             }
 
-            query = query.OrderBy(e => e.Id);
+            // Сортировка списка: fullname, profession, department, role. По умолчанию — по Id.
+            bool desc = string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase);
+            IOrderedQueryable<Employee> ordered = sortBy?.ToLowerInvariant() switch
+            {
+                "fullname" when desc => query.OrderByDescending(e => e.FullName),
+                "fullname" => query.OrderBy(e => e.FullName),
+                "profession" when desc => query.OrderByDescending(e => e.Profession),
+                "profession" => query.OrderBy(e => e.Profession),
+                "department" when desc => query.OrderByDescending(e => e.DepartmentId),
+                "department" => query.OrderBy(e => e.DepartmentId),
+                "role" when desc => query.OrderByDescending(e => e.Role!.Name),
+                "role" => query.OrderBy(e => e.Role!.Name),
+                _ when desc => query.OrderByDescending(e => e.Id),
+                _ => query.OrderBy(e => e.Id)
+            };
+
+            query = ordered.ThenBy(e => e.Id);
 
             var totalCount = await query.CountAsync();
 

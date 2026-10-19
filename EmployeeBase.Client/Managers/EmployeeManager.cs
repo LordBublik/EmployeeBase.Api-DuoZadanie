@@ -33,7 +33,13 @@ namespace EmployeeBase.Client.Managers
             }
         }
 
-        public async Task<PagedResultDto<EmployeeDto>> GetPageAsync(int page, int pageSize = 10, string? search = null, int? roleId = null)
+        public async Task<PagedResultDto<EmployeeDto>> GetPageAsync(
+            int page,
+            int pageSize = 10,
+            string? search = null,
+            int? roleId = null,
+            string? sortBy = null,
+            string? sortDir = null)
         {
             if (page < 1) page = 1;
             await AddAuthHeaderAsync();
@@ -48,6 +54,15 @@ namespace EmployeeBase.Client.Managers
             if (roleId.HasValue && roleId.Value > 0)
             {
                 url += $"&roleId={roleId.Value}";
+            }
+
+            if (!string.IsNullOrWhiteSpace(sortBy))
+            {
+                url += $"&sortBy={Uri.EscapeDataString(sortBy)}";
+                if (!string.IsNullOrWhiteSpace(sortDir))
+                {
+                    url += $"&sortDir={Uri.EscapeDataString(sortDir)}";
+                }
             }
 
             var result = await _http.GetFromJsonAsync<PagedResultDto<EmployeeDto>>(url);
