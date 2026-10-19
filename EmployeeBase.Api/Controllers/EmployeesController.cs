@@ -35,24 +35,48 @@ namespace EmployeeBase.Api.Controllers
         public async Task<IActionResult> GetEmployees(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,
-            [FromQuery] string? search = null)
+            [FromQuery] string? search = null,
+            [FromQuery] int? roleId = null,
+            [FromQuery] string? sortBy = null,
+            [FromQuery] string? sortDir = null)
         {
-            // Сначала фильтруем, потом маппим
             var query = _context.Employees
                 .Include(e => e.Role)
                 .AsQueryable();
 
+            // Фильтр по ФИО
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var searchLower = search.ToLower();
                 query = query.Where(e => e.FullName.ToLower().Contains(searchLower));
             }
 
-            query = query.OrderBy(e => e.Id);
+            // Фильтр по роли (если roleId передан и не равен 0)
+            if (roleId.HasValue && roleId.Value > 0)
+            {
+                query = query.Where(e => e.RoleId == roleId.Value);
+            }
+
+            // Сортировка списка: fullname, profession, department, role. По умолчанию — по Id.
+            bool desc = string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase);
+            IOrderedQueryable<Employee> ordered = sortBy?.ToLowerInvariant() switch
+            {
+                "fullname" when desc => query.OrderByDescending(e => e.FullName),
+                "fullname" => query.OrderBy(e => e.FullName),
+                "profession" when desc => query.OrderByDescending(e => e.Profession),
+                "profession" => query.OrderBy(e => e.Profession),
+                "department" when desc => query.OrderByDescending(e => e.DepartmentId),
+                "department" => query.OrderBy(e => e.DepartmentId),
+                "role" when desc => query.OrderByDescending(e => e.Role!.Name),
+                "role" => query.OrderBy(e => e.Role!.Name),
+                _ when desc => query.OrderByDescending(e => e.Id),
+                _ => query.OrderBy(e => e.Id)
+            };
+
+            query = ordered.ThenBy(e => e.Id);
 
             var totalCount = await query.CountAsync();
 
-            // Теперь маппим на DTO
             var items = await query
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
